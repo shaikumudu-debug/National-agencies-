@@ -1,1 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>National Agencies Stock</title>
+<style>
+body{font-family:Arial;background:#f1f4f9;margin:0;color:#222}
+header{background:#123d70;color:white;padding:22px;text-align:center}
+.container{padding:15px;max-width:700px;margin:auto}
+.card{background:white;padding:16px;margin:12px 0;border-radius:12px;box-shadow:0 2px 7px #ddd}
+input,select,button{width:100%;padding:12px;margin:7px 0;box-sizing:border-box;border:1px solid #ccc;border-radius:7px;font-size:16px}
+button{background:#123d70;color:white;border:0;font-weight:bold}
+.green{background:#168747}
+.red{background:#d63838}
+.item{border-bottom:1px solid #ddd;padding:12px 0}
+.item button{width:48%;display:inline-block}
+.small{color:#666;font-size:13px}
+</style>
+</head>
+<body>
 
+<header>
+<h2>NATIONAL AGENCIES</h2>
+<p>Plywood & Stock Management</p>
+</header>
+
+<div class="container">
+
+<div class="card">
+<h3>➕ Add New Product</h3>
+<input id="productName" placeholder="Product name">
+<select id="category">
+<option>Plywood</option>
+<option>Rexine</option>
+<option>Seat Covers</option>
+<option>Tank Covers</option>
+</select>
+<input id="size" placeholder="Size (Example: 8x4)">
+<button onclick="addProduct()">Add Product</button>
+</div>
+
+<div class="card">
+<h3>📦 Update Stock</h3>
+<select id="productSelect"></select>
+<input id="amount" type="number" min="1" placeholder="Enter quantity">
+<button class="green" onclick="changeStock(1)">ADD STOCK (+)</button>
+<button class="red" onclick="changeStock(-1)">REMOVE STOCK (-)</button>
+</div>
+
+<div class="card">
+<h3>📊 Available Stock</h3>
+<input id="search" placeholder="Search products..." oninput="showProducts()">
+<div id="products">Connecting...</div>
+</div>
+
+<p class="small" style="text-align:center">
+National Agencies | Nizamabad
+</p>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script>
+
+// REPLACE THESE VALUES WITH YOUR FIREBASE CONFIGURATION
+
+const firebaseConfig = {
+apiKey: "YOUR_API_KEY",
+authDomain: "YOUR_AUTH_DOMAIN",
+projectId: "YOUR_PROJECT_ID",
+storageBucket: "YOUR_STORAGE_BUCKET",
+messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+appId: "YOUR_APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let allProducts = [];
+
+async function startApp(){
+try {
+await auth.signInAnonymously();
+listenProducts();
+} catch(error) {
+document.getElementById("products").innerText =
+"Connection error: " + error.message;
+}
+}
+
+function listenProducts(){
+db.collection("products").onSnapshot(snapshot => {
+allProducts = [];
+snapshot.forEach(doc => {
+allProducts.push({id:doc.id,...doc.data()});
+});
+showProducts();
+updateDropdown();
+}, error => {
+document.getElementById("products").innerText = error.message;
+});
+}
+
+async function addProduct(){
+let name=document.getElementById("productName").value.trim();
+let category=document.getElementById("category").value;
+let size=document.getElementById("size").value.trim();
+
+if(!name){
+alert("Enter product name");
+return;
+}
+
+try{
+await db.collection("products").add({
+name:name,
+category:category,
+size:size,
+quantity:0,
+createdAt:firebase.firestore.FieldValue.serverTimestamp()
+});
+
+document.getElementById("productName").value="";
+document.getElementById("size").value="";
+alert("Product added!");
+}catch(e){alert(e.message);}
+}
+
+async function changeStock(direction){
+let id=document.getElementById("productSelect").value;
+let amount=Number(document.getElementById("amount").value);
+
+if(!id || !amount || amount<=0){
+alert("Select product and enter quantity");
+return;
+}
+
+try{
+await db.runTransaction(async transaction=>{
+let ref=db.collection("products").doc(id);
+let doc=await transaction.get(ref);
+
+if(!doc.exists) throw new Error("Product not found");
+
+let current=Number(doc.data().quantity)||0;
+let updated=current+(amount*direction);
+
+if(updated<0) throw new Error("Not enough stock!");
+
+transaction.update(ref,{quantity:updated});
+});
+
+document.getElementById("amount").value="";
+alert("Stock updated successfully!");
+}catch(e){alert(e.message);}
+}
+
+async function updateDropdown(){
+let select=document.getElementById("productSelect");
+let old=select.value;
+
+select.innerHTML="";
+
+allProducts.forEach(p=>{
+let option=document.createElement("option");
+option.value=p.id;
+option.textContent=p.name+" - "+(p.size||"");
+select.appendChild(option);
+});
+
+if(allProducts.some(p=>p.id===old))select.value=old;
+}
+
+function showProducts(){
+let search=document.getElementById("search").value.toLowerCase();
+let box=document.getElementById("products");
+
+let filtered=allProducts.filter(p=>
+(p.name||"").toLowerCase().includes(search) ||
+(p.category||"").toLowerCase().includes(search) ||
+(p.size||"").toLowerCase().includes(search)
+);
+
+if(filtered.length===0){
+box.innerHTML="No products found.";
+return;
+}
+
+box.innerHTML="";
+
+filtered.forEach(p=>{
+let div=document.createElement("div");
+div.className="item";
+
+let title=document.createElement("b");
+title.textContent=p.name;
+
+let details=document.createElement("div");
+details.textContent=(p.category||"")+" | "+(p.size||"");
+
+let quantity=document.createElement("h3");
+quantity.textContent="Stock: "+(p.quantity||0);
+
+div.append(title,details,quantity);
+box.appendChild(div);
+});
+}
+
+startApp();
+
+</script>
+</body>
+</html>
