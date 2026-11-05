@@ -205,12 +205,16 @@ async function addProduct() {
     });
 
     batch.set(historyRef, {
-      productName: name,
-      size: size,
-      action: "Product Added",
-      amount: quantity,
-      balance: quantity,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  productName: name,
+  category: category,
+  thickness: thickness,
+  size: size,
+  action: "Product Added",
+  amount: quantity,
+  previousBalance: 0,
+  balance: quantity,
+  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+});
     });
 
     await batch.commit();
@@ -354,6 +358,16 @@ async function changeStock(direction) {
       });
 
       transaction.set(historyRef, {
+  productName: data.name,
+  category: data.category || "",
+  thickness: data.thickness || "",
+  size: data.size || "",
+  action: direction === 1 ? "Stock Added" : "Stock Removed",
+  amount: amount,
+  previousBalance: oldStock,
+  balance: newStock,
+  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+});
         productName: data.name,
         size: data.size || "",
         action: direction === 1 ? "Stock Added" : "Stock Sold/Removed",
