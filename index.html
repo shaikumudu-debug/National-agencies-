@@ -467,33 +467,5 @@ async function deleteHistory() {
 start();
 
 </script>
-<h2>📜 Stock History</h2>
-<div id="history">Loading history...</div>
-
-<script>
-db.collection("history")
-.orderBy("createdAt", "desc")
-.limit(100)
-.onSnapshot(snapshot => {
-  const box = document.getElementById("history");
-  box.innerHTML = "";
-
-  if (snapshot.empty) {
-    box.innerHTML = "No stock history yet.";
-    return;
-  }
-
-  snapshot.forEach(doc => {
-    const item = doc.data();
-    box.innerHTML += `
-      <p>
-        ${item.productName || "Product"} |
-        ${item.action || ""} |
-        ${item.amount || 0} |
-        Balance: ${item.balance ?? ""}
-      </p>`;
-  });
-});
-</script>
 </body>
 </html>
