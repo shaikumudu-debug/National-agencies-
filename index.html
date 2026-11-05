@@ -3,59 +3,134 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>National Agencies Stock</title>
+
 <style>
-body{font-family:Arial;background:#f1f4f9;margin:0;color:#222}
-header{background:#123d70;color:white;padding:22px;text-align:center}
-.container{padding:15px;max-width:700px;margin:auto}
-.card{background:white;padding:16px;margin:12px 0;border-radius:12px;box-shadow:0 2px 7px #ddd}
-input,select,button{width:100%;padding:12px;margin:7px 0;box-sizing:border-box;border:1px solid #ccc;border-radius:7px;font-size:16px}
-button{background:#123d70;color:white;border:0;font-weight:bold}
-.green{background:#168747}
-.red{background:#d63838}
-.item{border-bottom:1px solid #ddd;padding:12px 0}
-.item button{width:48%;display:inline-block}
-.small{color:#666;font-size:13px}
+body {
+  font-family: Arial;
+  background: #f1f4f9;
+  margin: 0;
+}
+header {
+  background: #123d70;
+  color: white;
+  text-align: center;
+  padding: 20px;
+}
+.container {
+  max-width: 700px;
+  margin: auto;
+  padding: 12px;
+}
+.card {
+  background: white;
+  padding: 16px;
+  margin-bottom: 15px;
+  border-radius: 12px;
+  box-shadow: 0 2px 7px #ddd;
+}
+input, select, button {
+  width: 100%;
+  padding: 12px;
+  margin: 7px 0;
+  box-sizing: border-box;
+  border-radius: 7px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+}
+button {
+  background: #123d70;
+  color: white;
+  border: none;
+  font-weight: bold;
+}
+.add { background: green; }
+.remove { background: #d32f2f; }
+.delete { background: #b71c1c; }
+.product {
+  border-bottom: 1px solid #ddd;
+  padding: 12px 0;
+}
+.product h3 { margin-bottom: 5px; }
+.green { color: green; font-weight: bold; }
+.red { color: red; font-weight: bold; }
+.history {
+  border-bottom: 1px solid #ddd;
+  padding: 12px 0;
+}
+.small {
+  color: #666;
+  font-size: 13px;
+}
 </style>
 </head>
+
 <body>
 
 <header>
 <h2>NATIONAL AGENCIES</h2>
-<p>Plywood & Stock Management</p>
+<p>Stock Management System</p>
 </header>
 
 <div class="container">
 
 <div class="card">
 <h3>➕ Add New Product</h3>
-<input id="productName" placeholder="Product name">
+
 <select id="category">
 <option>Plywood</option>
 <option>Rexine</option>
 <option>Seat Covers</option>
 <option>Tank Covers</option>
 </select>
+
+<input id="thickness" placeholder="Thickness (Example: 12mm)">
 <input id="size" placeholder="Size (Example: 8x4)">
-<button onclick="addProduct()">Add Product</button>
+<input id="opening" type="number" min="0"
+placeholder="Opening stock (sheets/units)">
+
+<button onclick="addProduct()">ADD PRODUCT</button>
 </div>
 
 <div class="card">
 <h3>📦 Update Stock</h3>
+
 <select id="productSelect"></select>
-<input id="amount" type="number" min="1" placeholder="Enter quantity">
-<button class="green" onclick="changeStock(1)">ADD STOCK (+)</button>
-<button class="red" onclick="changeStock(-1)">REMOVE STOCK (-)</button>
+
+<input id="amount" type="number" min="1"
+placeholder="Enter quantity">
+
+<button class="add" onclick="changeStock(1)">
+ADD STOCK (+)
+</button>
+
+<button class="remove" onclick="changeStock(-1)">
+REMOVE STOCK (-)
+</button>
+
+<p class="small">
+Example: If you have 50 sheets and sell 30,
+enter 30 and press REMOVE STOCK.
+</p>
 </div>
 
 <div class="card">
-<h3>📊 Available Stock</h3>
-<input id="search" placeholder="Search products..." oninput="showProducts()">
+<h3>📊 AVAILABLE STOCK</h3>
+
+<input id="search" placeholder="Search product..."
+oninput="showProducts()">
+
 <div id="products">Connecting...</div>
 </div>
 
-<p class="small" style="text-align:center">
-National Agencies | Nizamabad
-</p>
+<div class="card">
+<h3>🕘 STOCK HISTORY</h3>
+
+<button class="delete" onclick="deleteHistory()">
+DELETE HISTORY
+</button>
+
+<div id="history">Loading history...</div>
+</div>
 
 </div>
 
@@ -65,15 +140,15 @@ National Agencies | Nizamabad
 
 <script>
 
-// REPLACE THESE VALUES WITH YOUR FIREBASE CONFIGURATION
+// PASTE YOUR ACTUAL FIREBASE CONFIG VALUES HERE
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAnZ3TBaspSCvG5O-Va1d5n6A52PDwO9Sc",
-  authDomain: "national-agencies-2595.firebaseapp.com",
-  projectId: "national-agencies-2595",
-  storageBucket: "national-agencies-2595.firebasestorage.app",
-  messagingSenderId: "425159175771",
-  appId: "1:425159175771:web:4d23822e704d62510b997e"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -81,137 +156,315 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-let allProducts = [];
+let products = [];
 
-async function startApp(){
-try {
-await auth.signInAnonymously();
-listenProducts();
-} catch(error) {
-document.getElementById("products").innerText =
-"Connection error: " + error.message;
-}
-}
+// LOGIN AND CONNECT
 
-function listenProducts(){
-db.collection("products").onSnapshot(snapshot => {
-allProducts = [];
-snapshot.forEach(doc => {
-allProducts.push({id:doc.id,...doc.data()});
-});
-showProducts();
-updateDropdown();
-}, error => {
-document.getElementById("products").innerText = error.message;
-});
+async function start() {
+  try {
+    await auth.signInAnonymously();
+    loadProducts();
+    loadHistory();
+  } catch(e) {
+    document.getElementById("products").innerText =
+      "Connection error: " + e.message;
+  }
 }
 
-async function addProduct(){
-let name=document.getElementById("productName").value.trim();
-let category=document.getElementById("category").value;
-let size=document.getElementById("size").value.trim();
+// ADD PRODUCT
 
-if(!name){
-alert("Enter product name");
-return;
+async function addProduct() {
+
+  const category = document.getElementById("category").value;
+  const thickness = document.getElementById("thickness").value.trim();
+  const size = document.getElementById("size").value.trim();
+  const quantity = Number(document.getElementById("opening").value);
+
+  if(!thickness || !size ||
+     document.getElementById("opening").value === "" ||
+     !Number.isInteger(quantity) || quantity < 0) {
+    alert("Enter valid product details and stock quantity");
+    return;
+  }
+
+  const name = category + " " + thickness;
+
+  try {
+    const productRef = db.collection("products").doc();
+    const historyRef = db.collection("history").doc();
+
+    const batch = db.batch();
+
+    batch.set(productRef, {
+      name: name,
+      category: category,
+      thickness: thickness,
+      size: size,
+      quantity: quantity,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    batch.set(historyRef, {
+      productName: name,
+      size: size,
+      action: "Product Added",
+      amount: quantity,
+      balance: quantity,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    await batch.commit();
+
+    document.getElementById("thickness").value = "";
+    document.getElementById("size").value = "";
+    document.getElementById("opening").value = "";
+
+    alert("Product added successfully!");
+
+  } catch(e) {
+    alert(e.message);
+  }
 }
 
-try{
-await db.collection("products").add({
-name:name,
-category:category,
-size:size,
-quantity:0,
-createdAt:firebase.firestore.FieldValue.serverTimestamp()
-});
+// LOAD AVAILABLE STOCK
 
-document.getElementById("productName").value="";
-document.getElementById("size").value="";
-alert("Product added!");
-}catch(e){alert(e.message);}
+function loadProducts() {
+
+  db.collection("products").onSnapshot(snapshot => {
+
+    products = [];
+
+    snapshot.forEach(doc => {
+      products.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    showProducts();
+    updateDropdown();
+
+  }, error => {
+    document.getElementById("products").innerText =
+      "Stock error: " + error.message;
+  });
 }
 
-async function changeStock(direction){
-let id=document.getElementById("productSelect").value;
-let amount=Number(document.getElementById("amount").value);
+// SHOW STOCK
 
-if(!id || !amount || amount<=0){
-alert("Select product and enter quantity");
-return;
+function showProducts() {
+
+  const search = document.getElementById("search")
+    .value.toLowerCase();
+
+  const box = document.getElementById("products");
+  box.innerHTML = "";
+
+  const filtered = products.filter(p =>
+    (p.name || "").toLowerCase().includes(search) ||
+    (p.size || "").toLowerCase().includes(search)
+  );
+
+  if(filtered.length === 0) {
+    box.innerText = "No products found.";
+    return;
+  }
+
+  filtered.forEach(p => {
+
+    const div = document.createElement("div");
+    div.className = "product";
+
+    const title = document.createElement("h3");
+    title.textContent = p.name || "Product";
+
+    const details = document.createElement("p");
+    details.textContent = "Size: " + (p.size || "-");
+
+    const stock = document.createElement("h3");
+    stock.textContent = "Available: " + (p.quantity || 0) + " sheets/units";
+
+    div.append(title, details, stock);
+    box.appendChild(div);
+
+  });
 }
 
-try{
-await db.runTransaction(async transaction=>{
-let ref=db.collection("products").doc(id);
-let doc=await transaction.get(ref);
+// PRODUCT DROPDOWN
 
-if(!doc.exists) throw new Error("Product not found");
+function updateDropdown() {
 
-let current=Number(doc.data().quantity)||0;
-let updated=current+(amount*direction);
+  const select = document.getElementById("productSelect");
+  const oldValue = select.value;
 
-if(updated<0) throw new Error("Not enough stock!");
+  select.innerHTML = "";
 
-transaction.update(ref,{quantity:updated});
-});
+  products.forEach(p => {
 
-document.getElementById("amount").value="";
-alert("Stock updated successfully!");
-}catch(e){alert(e.message);}
+    const option = document.createElement("option");
+    option.value = p.id;
+    option.textContent =
+      p.name + " | " + p.size +
+      " | Stock: " + p.quantity;
+
+    select.appendChild(option);
+
+  });
+
+  if(products.some(p => p.id === oldValue)) {
+    select.value = oldValue;
+  }
 }
 
-async function updateDropdown(){
-let select=document.getElementById("productSelect");
-let old=select.value;
+// ADD OR REMOVE STOCK
 
-select.innerHTML="";
+async function changeStock(direction) {
 
-allProducts.forEach(p=>{
-let option=document.createElement("option");
-option.value=p.id;
-option.textContent=p.name+" - "+(p.size||"");
-select.appendChild(option);
-});
+  const id = document.getElementById("productSelect").value;
+  const amount = Number(document.getElementById("amount").value);
 
-if(allProducts.some(p=>p.id===old))select.value=old;
+  if(!id || !Number.isInteger(amount) || amount <= 0) {
+    alert("Select product and enter a valid quantity");
+    return;
+  }
+
+  try {
+
+    await db.runTransaction(async transaction => {
+
+      const productRef = db.collection("products").doc(id);
+      const doc = await transaction.get(productRef);
+
+      if(!doc.exists) {
+        throw new Error("Product not found");
+      }
+
+      const data = doc.data();
+      const oldStock = Number(data.quantity) || 0;
+      const newStock = oldStock + (amount * direction);
+
+      if(newStock < 0) {
+        throw new Error("Not enough stock available!");
+      }
+
+      const historyRef = db.collection("history").doc();
+
+      transaction.update(productRef, {
+        quantity: newStock
+      });
+
+      transaction.set(historyRef, {
+        productName: data.name,
+        size: data.size || "",
+        action: direction === 1 ? "Stock Added" : "Stock Sold/Removed",
+        amount: amount,
+        previousBalance: oldStock,
+        balance: newStock,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+    });
+
+    document.getElementById("amount").value = "";
+
+    alert("Stock updated successfully!");
+
+  } catch(e) {
+    alert(e.message);
+  }
 }
 
-function showProducts(){
-let search=document.getElementById("search").value.toLowerCase();
-let box=document.getElementById("products");
+// STOCK HISTORY
 
-let filtered=allProducts.filter(p=>
-(p.name||"").toLowerCase().includes(search) ||
-(p.category||"").toLowerCase().includes(search) ||
-(p.size||"").toLowerCase().includes(search)
-);
+function loadHistory() {
 
-if(filtered.length===0){
-box.innerHTML="No products found.";
-return;
+  db.collection("history")
+    .orderBy("createdAt", "desc")
+    .limit(200)
+    .onSnapshot(snapshot => {
+
+      const box = document.getElementById("history");
+      box.innerHTML = "";
+
+      if(snapshot.empty) {
+        box.innerText = "No history available.";
+        return;
+      }
+
+      snapshot.forEach(doc => {
+
+        const h = doc.data();
+
+        const div = document.createElement("div");
+        div.className = "history";
+
+        const title = document.createElement("b");
+        title.textContent = h.productName || "Product";
+
+        const action = document.createElement("p");
+        action.textContent =
+          h.action + " : " + h.amount;
+
+        action.className =
+          h.action === "Stock Added" ? "green" :
+          h.action === "Stock Sold/Removed" ? "red" : "";
+
+        const balance = document.createElement("p");
+        balance.textContent = "Remaining stock: " +
+          (h.balance !== undefined ? h.balance : "-");
+
+        const date = document.createElement("p");
+        date.className = "small";
+        date.textContent =
+          h.createdAt && h.createdAt.toDate
+          ? h.createdAt.toDate().toLocaleString("en-IN")
+          : "Time pending";
+
+        div.append(title, action, balance, date);
+        box.appendChild(div);
+
+      });
+
+    }, error => {
+      document.getElementById("history").innerText =
+        "History error: " + error.message;
+    });
 }
 
-box.innerHTML="";
+// DELETE HISTORY ONLY
 
-filtered.forEach(p=>{
-let div=document.createElement("div");
-div.className="item";
+async function deleteHistory() {
 
-let title=document.createElement("b");
-title.textContent=p.name;
+  const confirmDelete = confirm(
+    "Delete all history? Available stock will NOT change."
+  );
 
-let details=document.createElement("div");
-details.textContent=(p.category||"")+" | "+(p.size||"");
+  if(!confirmDelete) return;
 
-let quantity=document.createElement("h3");
-quantity.textContent="Stock: "+(p.quantity||0);
+  try {
 
-div.append(title,details,quantity);
-box.appendChild(div);
-});
+    const snapshot = await db.collection("history").get();
+    const docs = snapshot.docs;
+
+    for(let i = 0; i < docs.length; i += 400) {
+
+      const batch = db.batch();
+
+      docs.slice(i, i + 400).forEach(doc => {
+        batch.delete(doc.ref);
+      });
+
+      await batch.commit();
+    }
+
+    alert("History deleted. Stock remains unchanged.");
+
+  } catch(e) {
+    alert("Error: " + e.message);
+  }
 }
 
-startApp();
+start();
 
 </script>
 </body>
