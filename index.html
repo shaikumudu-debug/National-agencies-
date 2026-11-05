@@ -6,7 +6,7 @@
 
 <style>
 body {
-  font-family: Arial;
+  font-family: Arial, sans-serif;
   background: #f1f4f9;
   margin: 0;
 }
@@ -46,20 +46,20 @@ button {
 .add { background: green; }
 .remove { background: #d32f2f; }
 .delete { background: #b71c1c; }
-.product {
+.product, .history {
   border-bottom: 1px solid #ddd;
   padding: 12px 0;
 }
 .product h3 { margin-bottom: 5px; }
 .green { color: green; font-weight: bold; }
 .red { color: red; font-weight: bold; }
-.history {
-  border-bottom: 1px solid #ddd;
-  padding: 12px 0;
-}
 .small {
   color: #666;
   font-size: 13px;
+}
+#status {
+  font-weight: bold;
+  margin: 8px 0;
 }
 </style>
 </head>
@@ -74,6 +74,11 @@ button {
 <div class="container">
 
 <div class="card">
+<h3>Connection Status</h3>
+<p id="status">Connecting to Firebase...</p>
+</div>
+
+<div class="card">
 <h3>➕ Add New Product</h3>
 
 <select id="category">
@@ -85,6 +90,7 @@ button {
 
 <input id="thickness" placeholder="Thickness (Example: 12mm)">
 <input id="size" placeholder="Size (Example: 8x4)">
+
 <input id="opening" type="number" min="0"
 placeholder="Opening stock (sheets/units)">
 
@@ -108,8 +114,7 @@ REMOVE STOCK (-)
 </button>
 
 <p class="small">
-Example: If you have 50 sheets and sell 30,
-enter 30 and press REMOVE STOCK.
+Enter the quantity you want to add or remove.
 </p>
 </div>
 
@@ -119,7 +124,7 @@ enter 30 and press REMOVE STOCK.
 <input id="search" placeholder="Search product..."
 oninput="showProducts()">
 
-<div id="products">Connecting...</div>
+<div id="products">Loading products...</div>
 </div>
 
 <div class="card">
@@ -140,12 +145,8 @@ DELETE HISTORY
 
 <script>
 
-// PASTE YOUR ACTUAL FIREBASE CONFIG VALUES HERE
-
-https://github.com/shaikumudu-debug/National-agencies-/edit/main/index.html?utm_source=chatgpt.com
-
-
-  const firebaseConfig = {
+// FIREBASE CONFIGURATION
+const firebaseConfig = {
   apiKey: "AIzaSyAnZ3TBaspSCvG5O-Va1d5n6A52PDwO9Sc",
   authDomain: "national-agencies-2595.firebaseapp.com",
   projectId: "national-agencies-2595",
@@ -153,7 +154,7 @@ https://github.com/shaikumudu-debug/National-agencies-/edit/main/index.html?utm_
   messagingSenderId: "425159175771",
   appId: "1:425159175771:web:4d23822e704d62510b997e"
 };
-  
+
 firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
@@ -161,32 +162,45 @@ const db = firebase.firestore();
 
 let products = [];
 
-// LOGIN AND CONNECT
+// CONNECTION
 
 async function start() {
+  const status = document.getElementById("status");
+
   try {
-    await auth.signInAnonymously();
+    if (!auth.currentUser) {
+      await auth.signInAnonymously();
+    }
+
+    status.innerText = "Firebase login successful. Loading stock...";
+
     loadProducts();
     loadHistory();
-  } catch(e) {
+
+  } catch (e) {
+    status.innerText = "Connection error: " + e.message;
     document.getElementById("products").innerText =
-      "Connection error: " + e.message;
+      "Could not connect to Firebase.";
   }
 }
 
 // ADD PRODUCT
 
 async function addProduct() {
-
   const category = document.getElementById("category").value;
   const thickness = document.getElementById("thickness").value.trim();
   const size = document.getElementById("size").value.trim();
-  const quantity = Number(document.getElementById("opening").value);
+  const openingValue = document.getElementById("opening").value;
+  const quantity = Number(openingValue);
 
-  if(!thickness || !size ||
-     document.getElementById("opening").value === "" ||
-     !Number.isInteger(quantity) || quantity < 0) {
-    alert("Enter valid product details and stock quantity");
+  if (
+    !thickness ||
+    !size ||
+    openingValue === "" ||
+    !Number.isInteger(quantity) ||
+    quantity < 0
+  ) {
+    alert("Enter valid product details and stock quantity.");
     return;
   }
 
@@ -208,17 +222,16 @@ async function addProduct() {
     });
 
     batch.set(historyRef, {
-  productName: name,
-  category: category,
-  thickness: thickness,
-  size: size,
-  action: "Product Added",
-  amount: quantity,
-  previousBalance: 0,
-  balance: quantity,
-  createdAt: firebase.firestore.FieldValue.serverTimestamp()
-});
-    
+      productName: name,
+      category: category,
+      thickness: thickness,
+      size: size,
+      action: "Product Added",
+      amount: quantity,
+      previousBalance: 0,
+      balance: quantity,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
 
     await batch.commit();
 
@@ -228,17 +241,15 @@ async function addProduct() {
 
     alert("Product added successfully!");
 
-  } catch(e) {
-    alert(e.message);
+  } catch (e) {
+    alert("Error: " + e.message);
   }
 }
 
 // LOAD AVAILABLE STOCK
 
 function loadProducts() {
-
   db.collection("products").onSnapshot(snapshot => {
-
     products = [];
 
     snapshot.forEach(doc => {
@@ -251,16 +262,21 @@ function loadProducts() {
     showProducts();
     updateDropdown();
 
+    document.getElementById("status").innerText =
+      "Connected successfully. Stock is up to date.";
+
   }, error => {
     document.getElementById("products").innerText =
       "Stock error: " + error.message;
+
+    document.getElementById("status").innerText =
+      "Firestore error: " + error.message;
   });
 }
 
-// SHOW STOCK
+// DISPLAY STOCK
 
 function showProducts() {
-
   const search = document.getElementById("search")
     .value.toLowerCase();
 
@@ -269,16 +285,16 @@ function showProducts() {
 
   const filtered = products.filter(p =>
     (p.name || "").toLowerCase().includes(search) ||
-    (p.size || "").toLowerCase().includes(search)
+    (p.size || "").toLowerCase().includes(search) ||
+    (p.category || "").toLowerCase().includes(search)
   );
 
-  if(filtered.length === 0) {
+  if (filtered.length === 0) {
     box.innerText = "No products found.";
     return;
   }
 
   filtered.forEach(p => {
-
     const div = document.createElement("div");
     div.className = "product";
 
@@ -289,36 +305,43 @@ function showProducts() {
     details.textContent = "Size: " + (p.size || "-");
 
     const stock = document.createElement("h3");
-    stock.textContent = "Available: " + (p.quantity || 0) + " sheets/units";
+    stock.textContent =
+      "Available: " + (p.quantity ?? 0) + " sheets/units";
 
     div.append(title, details, stock);
     box.appendChild(div);
-
   });
 }
 
 // PRODUCT DROPDOWN
 
 function updateDropdown() {
-
   const select = document.getElementById("productSelect");
   const oldValue = select.value;
 
   select.innerHTML = "";
 
-  products.forEach(p => {
-
+  if (products.length === 0) {
     const option = document.createElement("option");
+    option.textContent = "No products available";
+    option.value = "";
+    select.appendChild(option);
+    return;
+  }
+
+  products.forEach(p => {
+    const option = document.createElement("option");
+
     option.value = p.id;
     option.textContent =
-      p.name + " | " + p.size +
-      " | Stock: " + p.quantity;
+      (p.name || "Product") + " | " +
+      (p.size || "-") + " | Stock: " +
+      (p.quantity ?? 0);
 
     select.appendChild(option);
-
   });
 
-  if(products.some(p => p.id === oldValue)) {
+  if (products.some(p => p.id === oldValue)) {
     select.value = oldValue;
   }
 }
@@ -326,31 +349,34 @@ function updateDropdown() {
 // ADD OR REMOVE STOCK
 
 async function changeStock(direction) {
-
   const id = document.getElementById("productSelect").value;
-  const amount = Number(document.getElementById("amount").value);
+  const amountValue = document.getElementById("amount").value;
+  const amount = Number(amountValue);
 
-  if(!id || !Number.isInteger(amount) || amount <= 0) {
-    alert("Select product and enter a valid quantity");
+  if (
+    !id ||
+    amountValue === "" ||
+    !Number.isInteger(amount) ||
+    amount <= 0
+  ) {
+    alert("Select a product and enter a valid quantity.");
     return;
   }
 
   try {
-
     await db.runTransaction(async transaction => {
-
       const productRef = db.collection("products").doc(id);
       const doc = await transaction.get(productRef);
 
-      if(!doc.exists) {
-        throw new Error("Product not found");
+      if (!doc.exists) {
+        throw new Error("Product not found.");
       }
 
       const data = doc.data();
       const oldStock = Number(data.quantity) || 0;
       const newStock = oldStock + (amount * direction);
 
-      if(newStock < 0) {
+      if (newStock < 0) {
         throw new Error("Not enough stock available!");
       }
 
@@ -361,40 +387,30 @@ async function changeStock(direction) {
       });
 
       transaction.set(historyRef, {
-  productName: data.name,
-  category: data.category || "",
-  thickness: data.thickness || "",
-  size: data.size || "",
-  action: direction === 1 ? "Stock Added" : "Stock Removed",
-  amount: amount,
-  previousBalance: oldStock,
-  balance: newStock,
-  createdAt: firebase.firestore.FieldValue.serverTimestamp()
-});
-        productName: data.name,
+        productName: data.name || "Product",
+        category: data.category || "",
+        thickness: data.thickness || "",
         size: data.size || "",
-        action: direction === 1 ? "Stock Added" : "Stock Sold/Removed",
+        action: direction === 1 ? "Stock Added" : "Stock Removed",
         amount: amount,
         previousBalance: oldStock,
         balance: newStock,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
-
     });
 
     document.getElementById("amount").value = "";
 
     alert("Stock updated successfully!");
 
-  } catch(e) {
-    alert(e.message);
+  } catch (e) {
+    alert("Error: " + e.message);
   }
 }
 
 // STOCK HISTORY
 
 function loadHistory() {
-
   db.collection("history")
     .orderBy("createdAt", "desc")
     .limit(200)
@@ -403,13 +419,12 @@ function loadHistory() {
       const box = document.getElementById("history");
       box.innerHTML = "";
 
-      if(snapshot.empty) {
+      if (snapshot.empty) {
         box.innerText = "No history available.";
         return;
       }
 
       snapshot.forEach(doc => {
-
         const h = doc.data();
 
         const div = document.createElement("div");
@@ -420,26 +435,28 @@ function loadHistory() {
 
         const action = document.createElement("p");
         action.textContent =
-          h.action + " : " + h.amount;
+          (h.action || "Stock update") + " : " + (h.amount ?? 0);
 
         action.className =
           h.action === "Stock Added" ? "green" :
-          h.action === "Stock Sold/Removed" ? "red" : "";
+          (h.action === "Stock Removed" ||
+           h.action === "Stock Sold/Removed") ? "red" : "";
 
         const balance = document.createElement("p");
-        balance.textContent = "Remaining stock: " +
+        balance.textContent =
+          "Remaining stock: " +
           (h.balance !== undefined ? h.balance : "-");
 
         const date = document.createElement("p");
         date.className = "small";
+
         date.textContent =
           h.createdAt && h.createdAt.toDate
-          ? h.createdAt.toDate().toLocaleString("en-IN")
-          : "Time pending";
+            ? h.createdAt.toDate().toLocaleString("en-IN")
+            : "Time pending";
 
         div.append(title, action, balance, date);
         box.appendChild(div);
-
       });
 
     }, error => {
@@ -451,20 +468,17 @@ function loadHistory() {
 // DELETE HISTORY ONLY
 
 async function deleteHistory() {
-
   const confirmDelete = confirm(
     "Delete all history? Available stock will NOT change."
   );
 
-  if(!confirmDelete) return;
+  if (!confirmDelete) return;
 
   try {
-
     const snapshot = await db.collection("history").get();
     const docs = snapshot.docs;
 
-    for(let i = 0; i < docs.length; i += 400) {
-
+    for (let i = 0; i < docs.length; i += 400) {
       const batch = db.batch();
 
       docs.slice(i, i + 400).forEach(doc => {
@@ -476,10 +490,12 @@ async function deleteHistory() {
 
     alert("History deleted. Stock remains unchanged.");
 
-  } catch(e) {
+  } catch (e) {
     alert("Error: " + e.message);
   }
 }
+
+// START WEBSITE
 
 start();
 
