@@ -218,7 +218,7 @@ async function addProduct() {
   balance: quantity,
   createdAt: firebase.firestore.FieldValue.serverTimestamp()
 });
-    });
+    
 
     await batch.commit();
 
