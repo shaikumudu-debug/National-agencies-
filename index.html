@@ -80,7 +80,7 @@ button {
   <button onclick="login()">Login</button>
   <p id="loginMessage"></p>
 </div>
-
+<div id="appContent" style="display:none;">
 <div class="card">
 <h3>➕ Add New Product</h3>
 
@@ -167,25 +167,34 @@ let products = [];
 
 // CONNECTION
 
-async function start() {
-  const status = document.getElementById("status");
+// OWNER LOGIN
+
+async function login() {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
 
   try {
-    if (!auth.currentUser) {
-      await auth.signInAnonymously();
-    }
-
-    status.innerText = "Firebase login successful. Loading stock...";
-
-    loadProducts();
-    loadHistory();
-
+    await auth.signInWithEmailAndPassword(email, password);
   } catch (e) {
-    status.innerText = "Connection error: " + e.message;
-    document.getElementById("products").innerText =
-      "Could not connect to Firebase.";
+    document.getElementById("loginMessage").innerText =
+      "Login failed: " + e.message;
   }
 }
+
+auth.onAuthStateChanged(user => {
+  const loginBox = document.getElementById("loginBox");
+  const app = document.getElementById("appContent");
+
+  if (user) {
+    loginBox.style.display = "none";
+    app.style.display = "block";
+    loadProducts();
+    loadHistory();
+  } else {
+    loginBox.style.display = "block";
+    app.style.display = "none";
+  }
+});
 
 // ADD PRODUCT
 
@@ -500,8 +509,7 @@ async function deleteHistory() {
 
 // START WEBSITE
 
-start();
-
 </script>
+</div>
 </body>
 </html>
