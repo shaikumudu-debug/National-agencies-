@@ -73,9 +73,12 @@ button {
 
 <div class="container">
 
-<div class="card">
-<h3>Connection Status</h3>
-<p id="status">Connecting to Firebase...</p>
+<div class="card" id="loginBox">
+  <h3>🔐 Owner Login</h3>
+  <input id="email" type="email" placeholder="Your email">
+  <input id="password" type="password" placeholder="Your password">
+  <button onclick="login()">Login</button>
+  <p id="loginMessage"></p>
 </div>
 
 <div class="card">
